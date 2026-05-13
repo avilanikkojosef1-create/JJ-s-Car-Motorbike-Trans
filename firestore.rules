@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() 
+        && (request.auth.token.email == 'avilanikkojosef1@gmail.com' || request.auth.token.email == 'seff.carrental31@gmail.com');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) 
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 256
+        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 128))
+        && (!('phoneNumber' in data) || data.phoneNumber == null || (data.phoneNumber is string && data.phoneNumber.size() <= 32))
+        && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1024))
+        && (!('driversLicense' in data) || data.driversLicense == null || (data.driversLicense is string && data.driversLicense.size() <= 64))
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // --- Booking Validation ---
+    function isValidBooking(data) {
+      return data.keys().hasAll(['userId', 'vehicleId', 'status', 'totalPrice', 'createdAt'])
+        && (data.userId == request.auth.uid || isAdmin())
+        && data.vehicleId is string && data.vehicleId.size() <= 64
+        && data.status in ['pending', 'confirmed', 'completed', 'cancelled']
+        && data.totalPrice is number && data.totalPrice >= 0
+        && (!('firstName' in data) || (data.firstName is string && data.firstName.size() <= 128))
+        && (!('lastName' in data) || (data.lastName is string && data.lastName.size() <= 128))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 256))
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 32))
+        && (!('driversLicense' in data) || (data.driversLicense is string && data.driversLicense.size() <= 64))
+        && (!('protectionPlan' in data) || (data.protectionPlan in ['standard', 'premium']));
+    }
+
+    // --- Post Validation ---
+    function isValidPost(data) {
+      return data.keys().hasAll(['title', 'slug', 'content', 'createdAt'])
+        && data.title is string && data.title.size() <= 256
+        && data.slug is string && data.slug.size() <= 256
+        && data.content is string && data.content.size() <= 50000
+        && (!('excerpt' in data) || (data.excerpt is string && data.excerpt.size() <= 512))
+        && (!('image' in data) || (data.image is string && data.image.size() <= 1024))
+        && (!('author' in data) || (data.author is string && data.author.size() <= 128))
+        && (!('published' in data) || (data.published is bool));
+    }
+
+    // --- Vehicle Validation ---
+    function isValidVehicle(data) {
+      return data.keys().hasAll(['name', 'type', 'price', 'createdAt'])
+        && data.name is string && data.name.size() <= 128
+        && data.type in ['car', 'motorbike']
+        && data.price is number && data.price >= 0
+        && (!('category' in data) || (data.category is string && data.category.size() <= 64))
+        && (!('image' in data) || (data.image is string && data.image.size() <= 1024))
+        && (!('transmission' in data) || (data.transmission in ['Auto', 'Manual']))
+        && (!('fuel' in data) || (data.fuel in ['Unleaded', 'Diesel', 'Electric']))
+        && (!('description' in data) || (data.description is string && data.description.size() <= 2048));
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) 
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+    }
+
+    match /bookings/{bookingId} {
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidBooking(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() || (isSignedIn() && isOwner(existing().userId) 
+        && isValidBooking(incoming())
+        && incoming().userId == existing().userId
+        && incoming().vehicleId == existing().vehicleId
+        && (
+          // Allow cancelling
+          (incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+          || (incoming().status == existing().status && incoming().updatedAt == request.time)
+        ));
+      allow delete: if isAdmin();
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidPost(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidPost(incoming()) 
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    match /vehicles/{vehicleId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidVehicle(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidVehicle(incoming()) 
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

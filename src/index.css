@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-bright: #ffffff;
+  --color-on-surface: #1e2b58;
+  --color-on-surface-variant: #475569; /* Slate 600 for better contrast */
+  
+  --color-primary: #f59e0b; /* Amber 600 - slightly deeper for better readability on light */
+  --color-on-primary: #ffffff;
+  
+  --color-secondary: #0284c7; /* Sky 700 */
+  --color-on-secondary: #ffffff;
+
+  --color-accent: #feb700;
+
+  --radius-4xl: 40px;
+  --radius-3xl: 24px;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-sans antialiased relative min-h-screen;
+    background-image: 
+      radial-gradient(circle at -10% -10%, rgba(14, 165, 233, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 110% 110%, rgba(254, 183, 0, 0.05) 0%, transparent 50%);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight text-on-surface;
+  }
+}
+
+@utility glass {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 43, 88, 0.08);
+}
+
+@utility glass-card {
+  @apply bg-white border border-slate-200 shadow-sm rounded-4xl;
+}
+
+@utility hero-gradient {
+  background: linear-gradient(to right, rgba(248, 250, 252, 0.98) 0%, rgba(248, 250, 252, 0.7) 100%);
+}
+
+@utility btn-primary {
+  @apply bg-primary text-on-primary rounded-full px-8 py-3 font-bold transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-primary/20;
+}
+
+@utility btn-secondary {
+  @apply border border-slate-200 bg-white rounded-full px-8 py-3 font-medium transition-all hover:bg-slate-50 active:scale-95 text-on-surface;
+}
+
+@utility btn-accent {
+  @apply bg-primary text-on-primary rounded-full px-8 py-3 font-bold shadow-xl shadow-primary/20 hover:brightness-105 transition-all;
+}
+
+@layer components {
+  .markdown-body {
+    @apply text-on-surface-variant leading-relaxed text-lg;
+  }
+  
+  .markdown-body h1 {
+    @apply text-4xl font-bold text-on-surface mt-10 mb-6;
+  }
+  
+  .markdown-body h2 {
+    @apply text-3xl font-bold text-on-surface mt-8 mb-4;
+  }
+  
+  .markdown-body h3 {
+    @apply text-2xl font-bold text-on-surface mt-6 mb-3;
+  }
+  
+  .markdown-body p {
+    @apply mb-6;
+  }
+  
+  .markdown-body ul, .markdown-body ol {
+    @apply mb-6 pl-6;
+  }
+  
+  .markdown-body ul {
+    @apply list-disc;
+  }
+  
+  .markdown-body ol {
+    @apply list-decimal;
+  }
+  
+  .markdown-body li {
+    @apply mb-2;
+  }
+  
+  .markdown-body blockquote {
+    @apply border-l-4 border-primary pl-4 italic text-on-surface my-8;
+  }
+
+  .markdown-body img {
+    @apply rounded-3xl my-10 shadow-lg;
+  }
+}

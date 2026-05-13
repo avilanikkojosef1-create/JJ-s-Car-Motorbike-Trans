@@ -1,0 +1,118 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "driversLicense": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Vehicle booking information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "vehicleName": { "type": "string" },
+        "pickupLocation": { "type": "string" },
+        "returnLocation": { "type": "string" },
+        "arrivalDate": { "type": "string", "format": "date" },
+        "arrivalTime": { "type": "string" },
+        "departureDate": { "type": "string", "format": "date" },
+        "departureTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "totalPrice": { "type": "number" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "driversLicense": { "type": "string" },
+        "protectionPlan": { "type": "string", "enum": ["standard", "premium"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "vehicleId", "status", "totalPrice", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Blog post information",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "image": { "type": "string" },
+        "author": { "type": "string" },
+        "published": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "slug", "content", "createdAt"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Vehicle inventory information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["car", "motorbike"] },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "price": { "type": "number" },
+        "rating": { "type": "number" },
+        "seats": { "type": "number" },
+        "transmission": { "type": "string", "enum": ["Auto", "Manual"] },
+        "fuel": { "type": "string", "enum": ["Unleaded", "Diesel", "Electric"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "price", "createdAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "logo": { "type": "string" },
+        "heroContent": { "type": "string" },
+        "heroType": { "type": "string", "enum": ["image", "video"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Vehicle bookings"
+    },
+    "posts/{postId}": {
+      "schema": "Post",
+      "description": "Blog posts"
+    },
+    "vehicles/{vehicleId}": {
+      "schema": "Vehicle",
+      "description": "Vehicle inventory"
+    },
+    "settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Global settings"
+    }
+  }
+}
