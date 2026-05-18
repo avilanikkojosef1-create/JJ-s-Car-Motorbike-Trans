@@ -2,5 +2,5 @@
   "name": "JJ's Car & Motorbike Trans",
   "description": "Premium car and motorbike rentals for those who value efficiency, reliability, and the spirit of adventure.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
