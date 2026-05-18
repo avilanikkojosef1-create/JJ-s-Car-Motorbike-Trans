@@ -90,16 +90,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       allow update: if isOwner(userId) && isValidUser(incoming()) 
         && incoming().createdAt == existing().createdAt
-        && incoming().updatedAt == request.time;
+        && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp);
     }
 
     match /bookings/{bookingId} {
       allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && isValidBooking(incoming()) && incoming().createdAt == request.time;
+      allow create: if isSignedIn() && isValidBooking(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       allow update: if isAdmin() || (isSignedIn() && isOwner(existing().userId) 
         && isValidBooking(incoming())
         && incoming().userId == existing().userId
@@ -107,26 +107,26 @@ service cloud.firestore {
         && (
           // Allow cancelling
           (incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
-          || (incoming().status == existing().status && incoming().updatedAt == request.time)
+          || (incoming().status == existing().status && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp))
         ));
       allow delete: if isAdmin();
     }
 
     match /posts/{postId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidPost(incoming()) && incoming().createdAt == request.time;
+      allow create: if isAdmin() && isValidPost(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       allow update: if isAdmin() && isValidPost(incoming()) 
         && incoming().createdAt == existing().createdAt
-        && incoming().updatedAt == request.time;
+        && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp);
       allow delete: if isAdmin();
     }
 
     match /vehicles/{vehicleId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidVehicle(incoming()) && incoming().createdAt == request.time;
+      allow create: if isAdmin() && isValidVehicle(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       allow update: if isAdmin() && isValidVehicle(incoming()) 
         && incoming().createdAt == existing().createdAt
-        && incoming().updatedAt == request.time;
+        && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp);
       allow delete: if isAdmin();
     }
 

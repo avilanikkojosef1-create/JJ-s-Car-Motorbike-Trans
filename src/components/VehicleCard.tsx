@@ -5,19 +5,22 @@ import { motion } from 'motion/react';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
+  customLink?: string;
 }
 
-export default function VehicleCard({ vehicle }: VehicleCardProps) {
+export default function VehicleCard({ vehicle, customLink }: VehicleCardProps) {
+  const linkTo = customLink || `/vehicles/${vehicle.id}`;
   return (
     <motion.div
       whileHover={{ y: -8 }}
       className="glass-card overflow-hidden flex flex-col group p-2"
     >
-      <Link to={`/vehicles/${vehicle.id}`} className="relative h-56 overflow-hidden rounded-[32px] bg-slate-100 flex items-center justify-center">
+      <Link to={linkTo} className="relative h-56 overflow-hidden rounded-[32px] bg-slate-100 flex items-center justify-center">
         {vehicle.image && vehicle.image.trim() !== '' ? (
           <img
             src={vehicle.image}
             alt={vehicle.name}
+            referrerPolicy="no-referrer"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
         ) : (
@@ -64,7 +67,7 @@ export default function VehicleCard({ vehicle }: VehicleCardProps) {
             <div className="flex items-center gap-2 glass px-3 py-1.5 rounded-full border border-slate-200">
               <Users size={12} className="text-secondary" />
               <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
-                {vehicle.seats} Seats
+                {vehicle.seats} Seaters
               </span>
             </div>
           )}
@@ -81,7 +84,7 @@ export default function VehicleCard({ vehicle }: VehicleCardProps) {
             </div>
           </div>
           <Link
-            to={`/vehicles/${vehicle.id}`}
+            to={linkTo}
             className="btn-primary h-12 w-12 !p-0 flex items-center justify-center rounded-full"
           >
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>

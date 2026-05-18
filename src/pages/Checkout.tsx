@@ -14,7 +14,7 @@ export default function Checkout() {
   
   const [vehicle, setVehicle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     const fetchVehicle = async () => {
       if (!vehicleId) return;
@@ -67,7 +67,7 @@ export default function Checkout() {
         arrivalDate: searchParams.get('arrival') || '',
         departureDate: searchParams.get('departure') || '',
         status: 'pending',
-        totalPrice: vehicle.price + 500,
+        totalPrice: vehicle.price + (vehicle.carwashFee || 0),
         ...formData,
         protectionPlan: 'standard',
         createdAt: serverTimestamp(),
@@ -126,19 +126,9 @@ export default function Checkout() {
 
           {/* Stepper */}
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-primary">
+            <div className="flex items-center gap-3 text-primary text-center w-full justify-center">
               <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">1</div>
-              <span className="text-sm font-bold uppercase tracking-widest hidden sm:inline">Customer Info</span>
-            </div>
-            <div className="flex-1 h-0.5 bg-surface-container-highest"></div>
-            <div className="flex items-center gap-3 text-on-surface-variant opacity-40">
-              <div className="w-10 h-10 rounded-full border-2 border-surface-container-highest flex items-center justify-center font-bold">2</div>
-              <span className="text-sm font-bold uppercase tracking-widest hidden sm:inline">Protection</span>
-            </div>
-            <div className="flex-1 h-0.5 bg-surface-container-highest"></div>
-            <div className="flex items-center gap-3 text-on-surface-variant opacity-40">
-              <div className="w-10 h-10 rounded-full border-2 border-surface-container-highest flex items-center justify-center font-bold">3</div>
-              <span className="text-sm font-bold uppercase tracking-widest hidden sm:inline">Payment</span>
+              <span className="text-sm font-bold uppercase tracking-widest">Complete Your Details</span>
             </div>
           </div>
 
@@ -204,30 +194,6 @@ export default function Checkout() {
                 </div>
               </div>
             </section>
-
-            {/* Step 2 Selection (Preview) */}
-            <section className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-highest p-10 flex flex-col gap-8 opacity-60">
-              <h2 className="text-2xl text-primary flex items-center gap-3">
-                <Shield className="text-secondary-container" />
-                2. Protection & Extras
-              </h2>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className="relative p-6 rounded-2xl border-2 border-primary bg-primary/5 cursor-pointer flex flex-col gap-2">
-                  <div className="flex justify-between items-start">
-                    <span className="text-xl font-bold text-primary">Standard</span>
-                    <CheckCircle2 size={24} className="fill-primary text-white" />
-                  </div>
-                  <p className="text-sm text-on-surface-variant font-medium">Basic liability coverage. Includes ₱5,000 deductible.</p>
-                  <span className="mt-4 text-xs font-bold text-primary uppercase tracking-widest">Included</span>
-                </label>
-                <div className="p-6 rounded-2xl border-2 border-surface-container-highest bg-surface-container-low filter grayscale cursor-not-allowed flex flex-col gap-2">
-                   <span className="text-xl font-bold text-primary">Premium Cover</span>
-                   <p className="text-sm text-on-surface-variant font-medium">Zero deductible, comprehensive protection against all damages.</p>
-                   <span className="mt-4 text-xs font-bold text-primary uppercase tracking-widest">+₱500.00 / day</span>
-                </div>
-              </div>
-            </section>
           </div>
         </div>
 
@@ -276,14 +242,14 @@ export default function Checkout() {
                   <span className="text-on-surface">₱{vehicle.price}.00</span>
                 </div>
                 <div className="flex justify-between text-sm font-semibold">
-                  <span className="text-on-surface-variant">Taxes & Insurance</span>
-                  <span className="text-on-surface">₱500.00</span>
+                  <span className="text-on-surface-variant">Carwash fee</span>
+                  <span className="text-on-surface">₱{vehicle.carwashFee || 0}.00</span>
                 </div>
               </div>
 
               <div className="pt-6 border-t border-surface-container-highest flex justify-between items-end">
                 <span className="text-2xl font-bold text-primary">Total</span>
-                <span className="text-3xl font-bold text-primary">₱{vehicle.price + 500}.00</span>
+                <span className="text-3xl font-bold text-primary">₱{vehicle.price + (vehicle.carwashFee || 0)}.00</span>
               </div>
 
               <button 

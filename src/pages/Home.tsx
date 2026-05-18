@@ -1,7 +1,7 @@
 import { MapPin, Calendar, Search, Facebook, Clock, CheckCircle2 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { motion, AnimatePresence } from 'motion/react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, limit, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -11,15 +11,24 @@ export default function Home() {
   const [loadingFleets, setLoadingFleets] = useState(true);
   const [settings, setSettings] = useState({
     heroContent: '',
-    heroType: 'image'
+    heroType: 'image' as 'image' | 'video' | 'youtube'
   });
   const [arrivalDate, setArrivalDate] = useState('');
   const [departureDate, setDepartureDate] = useState('');
-  const [arrivalTime, setArrivalTime] = useState('10:00');
-  const [departureTime, setDepartureTime] = useState('10:00');
+  const [location, setLocation] = useState('');
   
   const [searchParams] = useSearchParams();
   const [showToast, setShowToast] = useState(searchParams.get('booked') === 'success');
+
+  const navigate = useNavigate();
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (location) params.set('location', location);
+    if (arrivalDate) params.set('arrival', arrivalDate);
+    if (departureDate) params.set('departure', departureDate);
+    navigate(`/vehicles?${params.toString()}`);
+  };
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'general'), (doc) => {
@@ -52,6 +61,15 @@ export default function Home() {
     }
   }, [showToast]);
 
+  const isVideo = (url: string) => {
+    const v = url.toLowerCase();
+    return v.includes('drive.google.com') || v.includes('firebasestorage') || v.includes('.mp4') || v.includes('.mov') || v.includes('.webm');
+  };
+
+  const isYouTube = (url: string) => {
+    return url.includes('youtube.com') || url.includes('youtu.be');
+  };
+
   return (
     <div className="flex flex-col">
       {/* Booking Success Toast */}
@@ -78,18 +96,37 @@ export default function Home() {
       <section className="relative min-h-[800px] flex items-center px-6 md:px-0 overflow-hidden">
         <div className="absolute inset-0 z-0">
           {settings.heroContent ? (
-            settings.heroType === 'video' ? (
+            isYouTube(settings.heroContent) ? (
+              <div className="absolute inset-0 w-full h-full overflow-hidden scale-[1.3] pointer-events-none">
+                <iframe 
+                  key={settings.heroContent}
+                  src={`https://www.youtube.com/embed/${settings.heroContent.match(/(?:youtu\.be\/|youtube\.com\/(?:v\/|u\/\w\/|embed\/|watch\?v=))([^#&?]*)/)?.[1] || ''}?autoplay=1&mute=1&controls=0&loop=1&playlist=${settings.heroContent.match(/(?:youtu\.be\/|youtube\.com\/(?:v\/|u\/\w\/|embed\/|watch\?v=))([^#&?]*)/)?.[1] || ''}&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&autohide=1&fs=0`}
+                  className="w-full h-full border-none brightness-[0.7]"
+                  allow="autoplay; muted; fullscreen"
+                />
+                <div className="absolute inset-0 z-10 bg-transparent" />
+              </div>
+            ) : isVideo(settings.heroContent) ? (
               <video 
-                src={settings.heroContent} 
+                key={settings.heroContent}
+                src={
+                  settings.heroContent.includes('drive.google.com')
+                    ? `https://drive.google.com/uc?id=${settings.heroContent.match(/\/d\/([^/]+)/)?.[1] || settings.heroContent.match(/[?&]id=([^&]+)/)?.[1] || ''}&export=media`
+                    : settings.heroContent
+                } 
                 autoPlay 
                 muted 
                 loop 
                 playsInline
+                disablePictureInPicture
                 className="w-full h-full object-cover brightness-[0.7] contrast-[1.1]"
               />
             ) : (
+
               <img 
+                key={settings.heroContent}
                 src={settings.heroContent} 
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover brightness-[0.7] contrast-[1.1]"
                 alt="Hero background"
               />
@@ -109,25 +146,83 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 backdrop-blur-md border border-primary/30 text-primary text-[10px] font-black uppercase tracking-[0.3em] mb-8">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                Premium Experience
-              </div>
               <h1 className="text-7xl md:text-9xl font-bold tracking-tighter text-white mb-8 leading-[0.85] drop-shadow-2xl">
                 Redefining <br /><span className="font-extrabold text-primary italic">Adventure.</span>
               </h1>
-              <p className="text-xl text-slate-200 mb-12 max-w-xl font-medium leading-relaxed drop-shadow-md">
-                Experience the ultimate freedom with our premium collection of luxury SUVs and high-performance motorbikes. Built for the bold.
-              </p>
               
-              <div className="flex flex-wrap gap-6">
-                <Link to="/vehicles" className="btn-primary flex items-center gap-2 px-10 py-5 text-sm uppercase tracking-widest font-black shadow-[0_0_30px_rgba(254,183,0,0.3)]">
-                  Explore Fleet
-                </Link>
-                <Link to="/about" className="px-10 py-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white text-sm uppercase tracking-widest font-black hover:bg-white/20 transition-all">
-                  Our Story
-                </Link>
+              <div className="mb-16">
               </div>
+
+              {/* Aesthetic Search Bar */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+                className="relative z-20 w-fit"
+              >
+                <div className="bg-black/30 backdrop-blur-3xl border border-white/20 p-2 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-stretch md:items-center gap-2">
+                  {/* Location */}
+                  <div className="flex items-center gap-4 px-8 py-5 hover:bg-white/5 rounded-[2rem] transition-all group min-w-[240px]">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                      <MapPin size={24} />
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-primary mb-1">Pick up location</span>
+                      <input 
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="e.g. San Jose DZR Airport Road"
+                        className="bg-transparent text-white font-extrabold text-lg outline-none w-full placeholder:text-white/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block w-px h-12 bg-white/10 mx-2" />
+
+                  {/* Pick Up */}
+                  <div className="flex items-center gap-4 px-8 py-5 hover:bg-white/5 rounded-[2rem] transition-all group">
+                    <div className="w-12 h-12 rounded-2xl bg-secondary/20 flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+                      <Calendar size={24} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-secondary mb-1">Pick Up Time</span>
+                      <input 
+                        type="datetime-local" 
+                        value={arrivalDate}
+                        onChange={(e) => setArrivalDate(e.target.value)}
+                        className="bg-transparent text-white font-extrabold text-sm outline-none cursor-pointer [color-scheme:dark]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block w-px h-12 bg-white/10 mx-2" />
+
+                  {/* Drop Off */}
+                  <div className="flex items-center gap-4 px-8 py-5 hover:bg-white/5 rounded-[2rem] transition-all group">
+                    <div className="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center text-accent group-hover:scale-110 transition-transform">
+                      <Clock size={24} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-accent mb-1">Drop Off Time</span>
+                      <input 
+                        type="datetime-local" 
+                        value={departureDate}
+                        onChange={(e) => setDepartureDate(e.target.value)}
+                        className="bg-transparent text-white font-extrabold text-sm outline-none cursor-pointer [color-scheme:dark]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Search Button */}
+                  <button 
+                    onClick={handleSearch}
+                    className="ml-2 bg-primary text-on-primary p-6 rounded-[2rem] hover:bg-on-surface transition-all flex items-center justify-center shadow-lg group"
+                  >
+                    <Search size={28} className="group-hover:scale-110 transition-transform" />
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
@@ -165,6 +260,65 @@ export default function Home() {
         )}
       </section>
 
+      {/* Guest Reviews Section */}
+      <section className="bg-on-surface py-32 px-6 md:px-0 text-white overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-24">
+            <p className="text-xs uppercase tracking-[0.4em] text-primary font-black mb-4">Guest Feedback</p>
+            <h2 className="text-6xl font-bold tracking-tighter mb-4">Tropical <span className="italic text-primary font-black">Stories.</span></h2>
+            <div className="w-24 h-1 bg-primary mx-auto rounded-full"></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {[
+              {
+                name: "Jet Cadavis",
+                role: "Luxury Traveler",
+                text: "The Toyota GL Grandia was pristine. Exploring Tacloban in such comfort made our family vacation truly unforgettable. Highly recommended service!",
+                rating: 5
+              },
+              {
+                name: "Maria Santos",
+                role: "Adventure Blogger",
+                text: "Renting the high-performance motorbike changed the game. I was able to reach remote spots easily. Fast booking and very smooth pickup.",
+                rating: 5
+              },
+              {
+                name: "Ricardo Gomez",
+                role: "Business Executive",
+                text: "Professionalism at its best. They handled all my requirements for local transport perfectly. Always my first choice in Leyte.",
+                rating: 5
+              }
+            ].map((review, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.2 }}
+                className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[3rem] relative group hover:bg-white/10 transition-all cursor-default"
+              >
+                <div className="flex gap-1 mb-8 text-primary text-lg">
+                  {[...Array(review.rating)].map((_, i) => (
+                    <span key={i}>★</span>
+                  ))}
+                </div>
+                <p className="text-xl font-medium leading-relaxed mb-10 text-slate-300 italic">"{review.text}"</p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 text-white font-black text-xl">
+                    {review.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-primary">{review.name}</h4>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">{review.role}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Contact Section */}
       <section id="contact" className="bg-slate-50 py-32 px-6 md:px-0">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-24 items-center">
@@ -192,7 +346,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Office</span>
-                <p className="text-sm font-bold text-on-surface">Tacloban City, 6500</p>
+                <p className="text-sm font-bold text-on-surface">San Jose DZR Airport Road, Tacloban City, 6500 Leyte</p>
               </div>
             </div>
           </div>
@@ -202,6 +356,7 @@ export default function Home() {
               <img 
                 src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=2070&auto=format&fit=crop" 
                 alt="Our Office" 
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-primary/20 mix-blend-multiply"></div>

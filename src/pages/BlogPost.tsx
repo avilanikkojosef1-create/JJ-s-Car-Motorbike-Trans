@@ -51,7 +51,7 @@ export default function BlogPost() {
       {/* Header */}
       <header className="relative py-32 px-8 overflow-hidden bg-slate-900">
         <div className="absolute inset-0 opacity-40">
-          <img src={post.image || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070&auto=format&fit=crop'} className="w-full h-full object-cover" alt="" />
+          <img src={post.image || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070&auto=format&fit=crop'} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
           <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 to-slate-900"></div>
         </div>
         

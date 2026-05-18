@@ -10,6 +10,7 @@ interface Post {
   title: string;
   excerpt: string;
   image: string;
+  thumbnail?: string;
   author: string;
   createdAt: any;
   slug: string;
@@ -99,8 +100,9 @@ export default function Blog() {
               >
                 <Link to={`/blog/${post.slug}`} className="block aspect-[16/10] rounded-3xl overflow-hidden mb-6 relative">
                   <img 
-                    src={post.image || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070&auto=format&fit=crop'} 
+                    src={post.thumbnail || post.image || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070&auto=format&fit=crop'} 
                     alt={post.title} 
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>

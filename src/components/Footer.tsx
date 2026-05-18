@@ -44,7 +44,7 @@ export default function Footer() {
               </div>
               <div>
                 <span className="block text-xs font-black uppercase tracking-widest text-on-surface-variant mb-1">Our Location</span>
-                <span className="text-sm font-bold text-on-surface">Tacloban City, Philippines, 6500</span>
+                <span className="text-sm font-bold text-on-surface">San Jose DZR Airport Road, Tacloban City, 6500 Leyte</span>
               </div>
             </li>
             <li className="flex items-start gap-4">
@@ -107,7 +107,6 @@ export default function Footer() {
           </Link>
         </div>
         <div className="flex gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">
-          <span className="cursor-help hover:text-on-surface transition-colors">Tacloban Branch 01</span>
           <span className="cursor-help hover:text-on-surface transition-colors">Registered Transport Operator</span>
         </div>
       </div>

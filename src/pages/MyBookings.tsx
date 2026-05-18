@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, orderBy, updateDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
-import { Calendar, MapPin, Car, Clock, ChevronRight, XCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, MapPin, Car, Clock, ChevronRight, XCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
@@ -163,6 +163,4 @@ export default function MyBookings() {
   );
 }
 
-function ArrowRight({ size }: { size: number }) {
-  return <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" style={{ width: size, height: size }} />;
-}
+

@@ -19,7 +19,9 @@ import {
   Lock,
   Mail,
   Settings,
-  Upload
+  Upload,
+  ShieldCheck,
+  Info
 } from 'lucide-react';
 import { 
   collection, 
@@ -35,104 +37,21 @@ import {
   setDoc,
   getDoc
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
 
 export default function AdminDashboard() {
-  const { user, isAdmin, loading: authLoading, signInWithEmail } = useAuth();
+  const { user, isAdmin, loading: authLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'bookings' | 'vehicles' | 'blog' | 'settings'>('bookings');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPass, setLoginPass] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
   
+  const handleLogout = async () => {
+    sessionStorage.removeItem('admin_verified');
+    await logout();
+  };
+
   if (authLoading) return <div className="p-24 text-center text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant">Synchronizing Admin Privileges...</div>;
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center p-8 bg-slate-50">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-slate-200 rounded-[2.5rem] p-12 max-w-md w-full shadow-2xl relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-2 bg-primary"></div>
-          <div className="flex flex-col items-center mb-10">
-            <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center text-primary mb-6 border border-slate-100 shadow-sm">
-              <Lock size={32} />
-            </div>
-            <h2 className="text-3xl font-black text-on-surface tracking-tighter uppercase mb-2">Restricted <span className="text-primary italic">Access</span></h2>
-            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest text-center">Master Administrator Authorization Required</p>
-          </div>
-
-          <form 
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setLoginLoading(true);
-              setLoginError(null);
-              try {
-                await signInWithEmail(loginEmail, loginPass);
-              } catch (err: any) {
-                setLoginError(err.message || 'Invalid Administrator Credentials');
-              } finally {
-                setLoginLoading(false);
-              }
-            }}
-            className="flex flex-col gap-6"
-          >
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-2">Email Identity</label>
-              <div className="relative">
-                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                <input 
-                  type="email" 
-                  required
-                  value={loginEmail}
-                  onChange={e => setLoginEmail(e.target.value)}
-                  className="w-full bg-slate-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-on-surface font-medium"
-                  placeholder="admin@trans.com"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-2">Secure Passcode</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                <input 
-                  type="password" 
-                  required
-                  value={loginPass}
-                  onChange={e => setLoginPass(e.target.value)}
-                  className="w-full bg-slate-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-on-surface font-medium"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            {loginError && (
-              <p className="text-[10px] font-black uppercase tracking-widest text-red-500 text-center animate-pulse">{loginError}</p>
-            )}
-
-            <button 
-              disabled={loginLoading}
-              className="btn-accent w-full py-5 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] font-black"
-            >
-              {loginLoading ? 'Decrypting Access...' : 'Authenticate'}
-              {!loginLoading && <ChevronRight size={18} />}
-            </button>
-          </form>
-          
-          <div className="mt-10 pt-8 border-t border-slate-50 text-center">
-            <Link to="/" className="text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-on-surface transition-colors flex items-center justify-center gap-2">
-              <ArrowRight size={12} className="rotate-180" /> Return to Website
-            </Link>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -171,16 +90,16 @@ export default function AdminDashboard() {
         
         <div className="flex items-center gap-4">
           <div className="text-right hidden sm:block">
-            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{user?.displayName}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">{user?.displayName || user?.email}</p>
             <p className="text-[8px] font-bold text-primary uppercase tracking-widest">Master Administrator</p>
           </div>
-          <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <Users size={18} className="text-slate-300" />
-            )}
-          </div>
+          <button 
+            onClick={handleLogout}
+            className="w-10 h-10 rounded-xl overflow-hidden border border-red-200 bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+            title="Secure Logout"
+          >
+            <Lock size={18} />
+          </button>
         </div>
       </div>
 
@@ -203,7 +122,7 @@ function SettingsManager() {
   const [settings, setSettings] = useState({
     logo: '',
     heroContent: '',
-    heroType: 'image' as 'image' | 'video'
+    heroType: 'image' as 'image' | 'video' | 'youtube'
   });
 
   useEffect(() => {
@@ -224,26 +143,52 @@ function SettingsManager() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'heroContent') => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'heroContent') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (Firestore limit is 1MB per document)
-    if (file.size > 1024 * 1024) {
-      alert("File is too large (Max 1MB). For larger files, please use a direct URL.");
+    // Check if it's a video and over a reasonable limit (e.g., 50MB) for this environment
+    if (file.size > 50 * 1024 * 1024) {
+      alert("File is too large for direct upload (Max 50MB). Please use a YouTube or Google Drive link instead.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
+    setSaving(true);
+    try {
+      // Create a storage reference
+      const storageRef = ref(storage, `assets/${Date.now()}_${file.name.replace(/\s+/g, '_')}`);
+      
+      // Upload the file
+      console.log(`Starting upload for ${file.name}...`);
+      console.log(`Using bucket: ${storage.app.options.storageBucket || 'default'}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      
+      // Get the download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('Upload successful. URL:', downloadURL);
+      
+      const isVid = file.type.startsWith('video/');
       setSettings(prev => ({
         ...prev,
-        [field]: base64,
-        heroType: field === 'heroContent' ? (file.type.startsWith('video') ? 'video' : 'image') : prev.heroType
+        [field]: downloadURL,
+        heroType: field === 'heroContent' ? (isVid ? 'video' : 'image') : prev.heroType
       }));
-    };
-    reader.readAsDataURL(file);
+      
+      alert(`Successfully uploaded: ${file.name}\n\nThe asset has been synced to Cloud Storage.`);
+    } catch (error: any) {
+      console.error('CRITICAL UPLOAD ERROR:', error);
+      
+      let message = error.message;
+      if (error.code === 'storage/retry-limit-exceeded') {
+        message = "Connection timeout. This often means your Firebase Storage bucket is not yet active. \n\nACTION REQUIRED: Please go to your Firebase Console -> Storage and click 'Get Started' to initialize the bucket. If it's already active, check your internet connection or try a smaller file (Max 50MB).";
+      } else if (error.code === 'storage/unauthorized') {
+        message = "Security Rules Violation. Your Storage rules may be blocking this upload. Please set them to: \n\nallow read, write: if request.auth != null;";
+      }
+      
+      alert(`Upload failed: ${message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -260,6 +205,15 @@ function SettingsManager() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const isVideo = (url: string) => {
+    const v = url.toLowerCase();
+    return v.includes('drive.google.com') || v.includes('firebasestorage') || v.includes('.mp4') || v.includes('.mov') || v.includes('.webm');
+  };
+
+  const isYouTube = (url: string) => {
+    return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
   if (loading) return <div className="py-24 text-center">Configuring system preferences...</div>;
@@ -314,16 +268,36 @@ function SettingsManager() {
             <p className="text-[10px] text-on-surface-variant ml-2">Appears in the navigation bar and global UI. Max 1MB for uploads.</p>
           </div>
 
+
           <div className="flex flex-col gap-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Hero Section Content</label>
             <div className="flex flex-col gap-4">
               <input 
                 required
                 value={settings.heroContent}
-                onChange={e => setSettings({...settings, heroContent: e.target.value})}
+                onChange={e => {
+                  const val = e.target.value;
+                  const isVid = val.toLowerCase().includes('.mp4') || val.toLowerCase().includes('.mov') || val.toLowerCase().includes('.webm');
+                  const isYouTube = val.includes('youtube.com') || val.includes('youtu.be');
+                  const isDrive = val.includes('drive.google.com');
+                  
+                  let finalHeroType: 'image' | 'video' | 'youtube';
+                  if (isYouTube) finalHeroType = 'youtube';
+                  else if (isDrive || isVid || val.includes('firebasestorage')) finalHeroType = 'video';
+                  else finalHeroType = 'image';
+                  
+                  setSettings({
+                    ...settings, 
+                    heroContent: val,
+                    heroType: finalHeroType
+                  });
+                }}
                 className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
-                placeholder="Paste URL or upload below"
+                placeholder="Paste URL (YouTube/Google Drive/Direct Video) or upload below"
               />
+              <p className="text-[10px] text-slate-400 mt-1 px-2">
+                Supported: Direct video links (.mp4, .mov, .webm), YouTube URLs, Google Drive, and Firebase Storage links.
+              </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="relative">
                   <input 
@@ -363,9 +337,10 @@ function SettingsManager() {
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Hero Content Type</label>
             <div className="flex gap-4 p-1 bg-slate-100 rounded-2xl w-fit">
-              {['image', 'video'].map((type) => (
+              {['image', 'video', 'youtube'].map((type) => (
                 <button
                   key={type}
+                  id={`hero-type-${type}`}
                   type="button"
                   onClick={() => setSettings({...settings, heroType: type as any})}
                   className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -379,19 +354,18 @@ function SettingsManager() {
               ))}
             </div>
           </div>
-        </div>
-
         <div className="pt-6 border-t border-slate-50">
           <button 
             type="submit"
             disabled={saving}
             className="btn-primary w-full py-5 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] font-black"
           >
-            {saving ? 'Updating System...' : 'Propagate Settings'}
+            {saving ? 'Updating System...' : 'Save & Publish to Homepage'}
             {!saving && <CheckCircle2 size={18} />}
           </button>
         </div>
-      </form>
+      </div>
+    </form>
 
       {/* Preview Section */}
       <div className="mt-12">
@@ -405,12 +379,32 @@ function SettingsManager() {
               <div className="text-slate-300 italic text-xs">No logo provided</div>
             )}
           </div>
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden min-h-[200px] relative group">
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden min-h-[200px] relative group bg-slate-50">
              {settings.heroContent && settings.heroContent.trim() !== '' ? (
-                settings.heroType === 'video' ? (
-                  <video src={settings.heroContent} autoPlay muted loop className="w-full h-full object-cover" />
+                isYouTube(settings.heroContent) ? (
+                  <div className="w-full h-full relative overflow-hidden pointer-events-none">
+                    <iframe 
+                      key={settings.heroContent}
+                      src={`https://www.youtube.com/embed/${settings.heroContent.match(/(?:youtu\.be\/|youtube\.com\/(?:v\/|u\/\w\/|embed\/|watch\?v=))([^#&?]*)/)?.[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${settings.heroContent.match(/(?:youtu\.be\/|youtube\.com\/(?:v\/|u\/\w\/|embed\/|watch\?v=))([^#&?]*)/)?.[1]}&rel=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3&autohide=1`}
+                      className="w-full h-full border-none scale-150"
+                    />
+                  </div>
+                ) : isVideo(settings.heroContent) ? (
+                  <video 
+                    key={settings.heroContent} 
+                    src={
+                      settings.heroContent.includes('drive.google.com')
+                        ? `https://drive.google.com/uc?id=${settings.heroContent.match(/\/d\/([^/]+)/)?.[1] || settings.heroContent.match(/[?&]id=([^&]+)/)?.[1] || ''}&export=media`
+                        : settings.heroContent
+                    }
+                    autoPlay 
+                    muted 
+                    loop 
+                    playsInline 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : (
-                  <img src={settings.heroContent} className="w-full h-full object-cover" alt="Hero preview" />
+                  <img key={settings.heroContent} src={settings.heroContent} className="w-full h-full object-cover" alt="Hero preview" />
                 )
              ) : (
                 <div className="w-full h-full flex items-center justify-center text-slate-300 italic text-xs bg-slate-50">Hero empty</div>
@@ -555,6 +549,8 @@ function VehiclesManager() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: 'car',
@@ -563,6 +559,8 @@ function VehiclesManager() {
     image: '',
     transmission: 'Auto',
     fuel: 'Unleaded',
+    seats: 4,
+    carwashFee: 0,
     description: '',
     tags: ''
   });
@@ -583,21 +581,88 @@ function VehiclesManager() {
     }
   };
 
-  const handleAddVehicle = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEdit = (vehicle: any) => {
+    setEditingId(vehicle.id);
+    setFormData({
+      name: vehicle.name || '',
+      type: vehicle.type || 'car',
+      price: vehicle.price || 0,
+      category: vehicle.category || 'Sedan',
+      image: vehicle.image || '',
+      transmission: vehicle.transmission || 'Auto',
+      fuel: vehicle.fuel || 'Unleaded',
+      seats: vehicle.seats || 4,
+      carwashFee: vehicle.carwashFee || 0,
+      description: vehicle.description || '',
+      tags: Array.isArray(vehicle.tags) ? vehicle.tags.join(', ') : (vehicle.tags || '')
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSaving(true);
     try {
-      await addDoc(collection(db, 'vehicles'), {
+      const storageRef = ref(storage, `vehicles/${Date.now()}_${file.name.replace(/\s+/g, '_')}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, image: downloadURL }));
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      let message = error.message;
+      if (error.code === 'storage/unauthorized') {
+        message = "Permission Denied: Your Firebase Storage rules are blocking this upload. Please update them to allow authenticated admins.";
+      }
+      alert(`Upload failed: ${message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const vehicleData = {
         ...formData,
         price: Number(formData.price),
         tags: formData.tags.split(',').map(t => t.trim()).filter(t => t !== ''),
-        rating: 5.0,
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+
+      if (editingId) {
+        await updateDoc(doc(db, 'vehicles', editingId), vehicleData);
+      } else {
+        await addDoc(collection(db, 'vehicles'), {
+          ...vehicleData,
+          rating: 5.0,
+          createdAt: serverTimestamp()
+        });
+      }
+
       setShowForm(false);
+      setEditingId(null);
+      setFormData({
+        name: '',
+        type: 'car',
+        price: 0,
+        category: 'Sedan',
+        image: '',
+        transmission: 'Auto',
+        fuel: 'Unleaded',
+        seats: 4,
+        carwashFee: 0,
+        description: '',
+        tags: ''
+      });
       fetchVehicles();
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'vehicles');
+      handleFirestoreError(error, editingId ? OperationType.UPDATE : OperationType.CREATE, editingId ? `vehicles/${editingId}` : 'vehicles');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -625,7 +690,25 @@ function VehiclesManager() {
           <p className="text-on-surface-variant font-medium">Add and maintain your vehicle catalog.</p>
         </div>
         <button 
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              setEditingId(null);
+              setFormData({
+                name: '',
+                type: 'car',
+                price: 0,
+                category: 'Sedan',
+                image: '',
+                transmission: 'Auto',
+                fuel: 'Unleaded',
+                seats: 4,
+                carwashFee: 0,
+                description: '',
+                tags: ''
+              });
+            }
+            setShowForm(!showForm);
+          }}
           className="btn-primary flex items-center gap-2"
         >
           {showForm ? <XCircle size={18} /> : <Plus size={18} />}
@@ -635,28 +718,57 @@ function VehiclesManager() {
 
       <AnimatePresence>
         {showForm && (
-          <motion.form 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            onSubmit={handleAddVehicle}
-            className="bg-white border border-slate-200 rounded-3xl p-8 overflow-hidden shadow-xl"
+            className="flex flex-col gap-4 mb-4"
           >
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <Info size={18} />
+              </div>
+              <div>
+                 <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Image Recommendations</h4>
+                 <p className="text-[10px] text-blue-700 font-medium leading-relaxed">
+                   <strong>Hero Banner:</strong> 1920x1080 (16:9) or better. <br/>
+                   <strong>Vehicle Images:</strong> 1200x900 (4:3) recommended for best display.
+                 </p>
+              </div>
+            </div>
+
+             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-4">
+               <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
+                 <ShieldCheck size={18} />
+               </div>
+               <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Storage Activation Required</h4>
+                  <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                    If uploads fail with "Unauthorized", please ensure your <strong>Firebase Storage Rules</strong> allow writes. 
+                    Go to Firebase Console &gt; Storage &gt; Rules and set them to: <code className="bg-amber-100 px-1 rounded">allow read, write: if request.auth != null;</code>
+                  </p>
+               </div>
+             </div>
+
+            <form 
+              onSubmit={handleSubmit}
+              className="bg-white border border-slate-200 rounded-3xl p-8 overflow-hidden shadow-xl"
+            >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Vehicle Name</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex: Toyota Hilux" />
+                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all font-semibold text-on-surface" placeholder="Ex: Toyota Hilux" />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Type</label>
-                <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none">
+                <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20">
                   <option value="car">Car</option>
                   <option value="motorbike">Motorbike</option>
                 </select>
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Category</label>
-                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none">
+                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20">
                   <option value="Sedan">Sedan</option>
                   <option value="Hatchback">Hatchback</option>
                   <option value="Van">Van</option>
@@ -668,38 +780,101 @@ function VehiclesManager() {
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Daily Price (₱)</label>
-                <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20" />
+                <input 
+                  type="number" 
+                  required 
+                  value={formData.price || ''} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData({...formData, price: val === '' ? 0 : Number(val)});
+                  }} 
+                  className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all font-semibold" 
+                  placeholder="0"
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Transmission</label>
-                <select value={formData.transmission} onChange={e => setFormData({...formData, transmission: e.target.value})} className="bg-slate-100 border-none rounded-xl px-4 py-3 outline-none">
+                <select value={formData.transmission} onChange={e => setFormData({...formData, transmission: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20">
                   <option>Auto</option>
                   <option>Manual</option>
                 </select>
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Fuel</label>
-                <select value={formData.fuel} onChange={e => setFormData({...formData, fuel: e.target.value})} className="bg-slate-100 border-none rounded-xl px-4 py-3 outline-none">
+                <select value={formData.fuel} onChange={e => setFormData({...formData, fuel: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20">
                   <option>Unleaded</option>
                   <option>Diesel</option>
                   <option>Electric</option>
                 </select>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Image URL</label>
-                <input value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none" placeholder="https://unsplash..." />
+                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Seaters</label>
+                <input 
+                  type="number" 
+                  required 
+                  value={formData.seats || ''} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData({...formData, seats: val === '' ? 0 : Number(val)});
+                  }} 
+                  className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all font-semibold" 
+                  placeholder="0"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Carwash Fee (₱)</label>
+                <input 
+                  type="number" 
+                  value={formData.carwashFee || ''} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData({...formData, carwashFee: val === '' ? 0 : Number(val)});
+                  }} 
+                  className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all font-semibold" 
+                  placeholder="Leave 0 for default"
+                />
+              </div>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Image Content</label>
+                <div className="flex gap-2">
+                  <input value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="flex-1 bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none font-medium focus:ring-2 focus:ring-primary/20 text-on-surface" placeholder="Paste image URL here..." />
+                  <div className="relative">
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="vehicle-upload" />
+                    <label htmlFor="vehicle-upload" className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-sm ${saving ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-on-surface'}`}>
+                      <Upload size={14} /> {saving ? 'Uploading...' : 'Upload Image'}
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col items-center justify-center bg-slate-50 rounded-2xl p-2 border border-slate-200 min-h-[80px]">
+                {formData.image ? (
+                  <img src={formData.image} referrerPolicy="no-referrer" className="h-20 w-auto object-contain rounded-lg shadow-sm" alt="Preview" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <ImageIcon size={24} className="text-slate-300" />
+                    <span className="text-[8px] text-slate-400 font-bold uppercase">No Image</span>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-2 md:col-span-3">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Tags (Comma separated)</label>
-                <input value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none" placeholder="Premium, SUV, etc." />
+                <input value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none font-semibold focus:bg-white focus:ring-2 focus:ring-primary/20" placeholder="Premium, SUV, etc." />
               </div>
               <div className="flex flex-col gap-2 md:col-span-3">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Description</label>
-                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none h-24" />
+                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none h-24 font-medium focus:bg-white focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
-            <button type="submit" className="btn-primary w-full py-4 text-sm">Deploy to Catalog</button>
-          </motion.form>
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="btn-primary w-full py-4 text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3"
+            >
+              {saving ? 'Processing...' : (editingId ? 'Update Vehicle Details' : 'Deploy to Catalog')}
+              <ArrowRight size={18} />
+            </button>
+            </form>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -708,7 +883,17 @@ function VehiclesManager() {
           <div key={v.id} className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all group">
             <div className="h-48 relative overflow-hidden bg-slate-100">
               {v.image ? (
-                <img src={v.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                <img 
+                  src={v.image} 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                  alt={v.name} 
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&q=80&w=600'; // Fallback
+                    console.warn(`Failed to load image for ${v.name}, using fallback.`);
+                  }}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-slate-300">
                   <ImageIcon size={48} />
@@ -725,7 +910,7 @@ function VehiclesManager() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-xl font-bold text-on-surface">{v.name}</h3>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{v.type} • {v.transmission}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{v.type} • {v.transmission} • {v.seats || 0} Seaters</span>
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-primary">₱{v.price}</p>
@@ -733,7 +918,10 @@ function VehiclesManager() {
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-                <button className="flex-1 py-3 rounded-xl bg-slate-50 text-xs font-bold text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center gap-2">
+                <button 
+                  onClick={() => handleEdit(v)}
+                  className="flex-1 py-3 rounded-xl bg-on-surface text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary transition-all flex items-center justify-center gap-2 shadow-sm"
+                >
                   <Edit3 size={14} /> Edit Details
                 </button>
               </div>
@@ -750,12 +938,14 @@ function BlogManager() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     slug: '',
     content: '',
     excerpt: '',
     image: '',
+    thumbnail: '',
     published: true
   });
 
@@ -842,8 +1032,58 @@ function BlogManager() {
                 <input required value={formData.slug} onChange={e => setFormData({...formData, slug: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none font-mono text-xs" />
               </div>
               <div className="flex flex-col gap-2 md:col-span-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Cover Image URL</label>
-                <input value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="bg-slate-50 border-none rounded-xl px-4 py-3 outline-none" />
+                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Cover Image URL or Upload</label>
+                <div className="flex gap-2">
+                  <input value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all" placeholder="https://unsplash..." />
+                  <div className="relative">
+                    <input type="file" accept="image/*" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setSaving(true);
+                      try {
+                        const storageRef = ref(storage, `blog/hero_${Date.now()}_${file.name.replace(/\s+/g, '_')}`);
+                        const snapshot = await uploadBytes(storageRef, file);
+                        const url = await getDownloadURL(snapshot.ref);
+                        setFormData(prev => ({ ...prev, image: url }));
+                      } catch (err) {
+                        console.error(err);
+                        alert("Upload failed. Check storage rules.");
+                      } finally {
+                        setSaving(false);
+                      }
+                    }} className="hidden" id="blog-upload" />
+                    <label htmlFor="blog-upload" className="px-6 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-on-surface transition-all cursor-pointer shadow-sm flex items-center gap-2">
+                      <Upload size={14} /> {saving ? '...' : 'Upload Hero'}
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-primary">Thumbnail (List View) URL or Upload</label>
+                <div className="flex gap-2">
+                  <input value={formData.thumbnail} onChange={e => setFormData({...formData, thumbnail: e.target.value})} className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Small version of the cover image..." />
+                  <div className="relative">
+                    <input type="file" accept="image/*" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setSaving(true);
+                      try {
+                        const storageRef = ref(storage, `blog/thumb_${Date.now()}_${file.name.replace(/\s+/g, '_')}`);
+                        const snapshot = await uploadBytes(storageRef, file);
+                        const url = await getDownloadURL(snapshot.ref);
+                        setFormData(prev => ({ ...prev, thumbnail: url }));
+                      } catch (err) {
+                        console.error(err);
+                        alert("Upload failed.");
+                      } finally {
+                        setSaving(false);
+                      }
+                    }} className="hidden" id="blog-thumb-upload" />
+                    <label htmlFor="blog-thumb-upload" className="px-6 py-3 rounded-xl bg-secondary text-white text-[10px] font-black uppercase tracking-widest hover:bg-on-surface transition-all cursor-pointer shadow-sm flex items-center gap-2">
+                      <Upload size={14} /> {saving ? '...' : 'Upload Thumb'}
+                    </label>
+                  </div>
+                </div>
               </div>
               <div className="flex flex-col gap-2 md:col-span-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-primary">Introduction (Excerpt)</label>
@@ -864,7 +1104,7 @@ function BlogManager() {
           <div key={post.id} className="bg-white border border-slate-200 rounded-2xl p-6 flex items-center justify-between gap-8 hover:bg-slate-50 transition-colors group">
              <div className="flex items-center gap-6">
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
-                  <img src={post.image || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070&auto=format&fit=crop'} className="w-full h-full object-cover" alt="" />
+                  <img src={post.thumbnail || post.image || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070&auto=format&fit=crop'} className="w-full h-full object-cover" alt="" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-on-surface mb-1">{post.title}</h3>

@@ -2,16 +2,24 @@ import React, { useState, useEffect } from 'react';
 import VehicleCard from '../components/VehicleCard';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useSearchParams } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export default function VehicleList() {
+  const [searchParams] = useSearchParams();
   const [vehicleType, setVehicleType] = useState<string[]>(['car', 'motorbike']);
-  const [categories, setCategories] = useState<string[]>(['Sedan', 'Hatchback', 'Van', 'MPV', 'SUV', 'L300', 'Motorbike']);
-  const [transmission, setTransmission] = useState<string>('Automatic');
+  const [categories, setCategories] = useState<string[]>(['Sedan', 'Hatchback', 'Van', 'MPV', 'SUV', 'L300', 'Toyota Grandia', 'Motorbike']);
+  const [transmission, setTransmission] = useState<string>('All');
   const [fuelTypes, setFuelTypes] = useState<string[]>(['Unleaded', 'Diesel', 'Electric']);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  const arrival = searchParams.get('arrival') || '';
+  const departure = searchParams.get('departure') || '';
+  const location = searchParams.get('location') || '';
 
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -31,13 +39,31 @@ export default function VehicleList() {
   const filteredVehicles = vehicles.filter(v => 
     vehicleType.includes(v.type) && 
     categories.includes(v.category) &&
-    (transmission === 'Automatic' ? v.transmission === 'Auto' : v.transmission === 'Manual') &&
+    (transmission === 'All' || (transmission === 'Automatic' ? v.transmission === 'Auto' : v.transmission === 'Manual')) &&
     fuelTypes.includes(v.fuel)
   );
 
+  const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
+  const currentVehicles = filteredVehicles.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [vehicleType, categories, transmission, fuelTypes]);
+
   if (loading) return <div className="p-24 text-center">Fueling up the fleet...</div>;
 
-  const allCategories = ['Sedan', 'Hatchback', 'Van', 'MPV', 'SUV', 'L300', 'Motorbike'];
+  const allCategories = ['Sedan', 'Hatchback', 'Van', 'MPV', 'SUV', 'L300', 'Toyota Grandia', 'Motorbike'];
+
+  const getDetailsLink = (id: string) => {
+    const params = new URLSearchParams();
+    if (arrival) params.set('arrival', arrival);
+    if (departure) params.set('departure', departure);
+    if (location) params.set('location', location);
+    return `/vehicles/${id}${params.toString() ? '?' + params.toString() : ''}`;
+  };
 
   return (
     <div className="max-w-7xl mx-auto w-full px-6 py-12 lg:py-16">
@@ -52,7 +78,7 @@ export default function VehicleList() {
                 onClick={() => {
                   setVehicleType(['car', 'motorbike']);
                   setCategories(['Sedan', 'Hatchback', 'Van', 'MPV', 'SUV', 'L300', 'Motorbike']);
-                  setTransmission('Automatic');
+                  setTransmission('All');
                   setFuelTypes(['Unleaded', 'Diesel', 'Electric']);
                 }}
               >
@@ -126,6 +152,16 @@ export default function VehicleList() {
               <h3 className="text-[10px] font-bold text-on-surface-variant mb-6 uppercase tracking-[0.3em]">Transmission</h3>
               <div className="flex flex-col gap-3">
                 <button 
+                  onClick={() => setTransmission('All')}
+                  className={`py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest border-2 transition-all ${
+                    transmission === 'All' 
+                      ? 'bg-primary text-on-primary border-primary shadow-md' 
+                      : 'bg-slate-50 text-on-surface-variant border-transparent hover:border-slate-200'
+                  }`}
+                >
+                  All
+                </button>
+                <button 
                   onClick={() => setTransmission('Automatic')}
                   className={`py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest border-2 transition-all ${
                     transmission === 'Automatic' 
@@ -139,8 +175,8 @@ export default function VehicleList() {
                   onClick={() => setTransmission('Manual')}
                   className={`py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest border-2 transition-all ${
                     transmission === 'Manual' 
-                      ? 'btn-accent' 
-                      : 'bg-white/5 text-on-surface-variant border-transparent hover:border-white/10'
+                      ? 'bg-primary text-on-primary border-primary shadow-md' 
+                      : 'bg-slate-50 text-on-surface-variant border-transparent hover:border-slate-200'
                   }`}
                 >
                   Manual
@@ -191,9 +227,13 @@ export default function VehicleList() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredVehicles.length > 0 ? (
-              filteredVehicles.map((vehicle) => (
-                <VehicleCard key={vehicle.id} vehicle={vehicle} />
+            {currentVehicles.length > 0 ? (
+              currentVehicles.map((vehicle) => (
+                <VehicleCard 
+                  key={vehicle.id} 
+                  vehicle={vehicle} 
+                  customLink={getDetailsLink(vehicle.id)} 
+                />
               ))
             ) : (
               <div className="col-span-full py-20 text-center text-on-surface-variant">
@@ -203,17 +243,48 @@ export default function VehicleList() {
           </div>
 
           {/* Pagination */}
-          <div className="mt-16 flex justify-center items-center gap-3">
-            <button className="w-12 h-12 rounded-full border-2 border-surface-container-highest flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary transition-all disabled:opacity-50">
-              <ChevronLeft size={20} />
-            </button>
-            <button className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-md">1</button>
-            <button className="w-12 h-12 rounded-full border-2 border-surface-container-highest flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary transition-all text-sm font-bold">2</button>
-            <button className="w-12 h-12 rounded-full border-2 border-surface-container-highest flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary transition-all text-sm font-bold">3</button>
-            <button className="w-12 h-12 rounded-full border-2 border-surface-container-highest flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary transition-all">
-              <ChevronRight size={20} />
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <div className="mt-16 flex justify-center items-center gap-3">
+              <button 
+                onClick={() => {
+                  setCurrentPage(prev => Math.max(prev - 1, 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={currentPage === 1}
+                className="w-12 h-12 rounded-full border-2 border-surface-container-highest flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary transition-all disabled:opacity-50"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              {[...Array(totalPages)].map((_, i) => (
+                <button 
+                  key={i}
+                  onClick={() => {
+                    setCurrentPage(i + 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                    currentPage === i + 1 
+                      ? 'bg-primary text-white shadow-md' 
+                      : 'border-2 border-surface-container-highest text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button 
+                onClick={() => {
+                  setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={currentPage === totalPages}
+                className="w-12 h-12 rounded-full border-2 border-surface-container-highest flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white hover:border-primary transition-all disabled:opacity-50"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
         </main>
       </div>
     </div>

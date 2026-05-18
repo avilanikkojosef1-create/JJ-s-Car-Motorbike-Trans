@@ -37,15 +37,13 @@ export default function Navbar() {
           {logo && logo.trim() !== '' ? (
             <img src={logo} alt="JJ Logo" className="max-h-12 w-auto object-contain" />
           ) : (
-            <>
-              <div className="w-10 h-10 bg-on-surface rounded-xl flex items-center justify-center shadow-lg shadow-on-surface/10">
-                <span className="text-white font-bold">JJ</span>
-              </div>
-              <span className="text-xl font-light tracking-tight text-on-surface font-display hidden sm:block">
-                JJ's Car & Motorbike <span className="font-semibold text-primary">Trans</span>
-              </span>
-            </>
+            <div className="w-10 h-10 bg-on-surface rounded-xl flex items-center justify-center shadow-lg shadow-on-surface/10">
+              <span className="text-white font-bold">JJ</span>
+            </div>
           )}
+          <span className="text-lg font-black tracking-tighter text-on-surface font-display hidden lg:block uppercase">
+            JJ's CAR & Motorbike <span className="text-primary italic">TRANS</span>
+          </span>
         </Link>
 
         {/* Desktop Links */}
@@ -73,19 +71,6 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-6">
-          {user ? (
-            <div className="flex items-center gap-4 group relative">
-              <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-primary/20 shadow-sm relative bg-slate-50 flex items-center justify-center">
-                {user.photoURL && user.photoURL.trim() !== '' ? (
-                  <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-slate-100 flex items-center justify-center text-on-surface">
-                    <UserIcon size={20} />
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
           <Link
             to="/vehicles"
             className="btn-accent text-sm"

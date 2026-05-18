@@ -11,18 +11,8 @@ export interface Vehicle {
   seats?: number;
   transmission: 'Auto' | 'Manual';
   fuel: 'Unleaded' | 'Diesel' | 'Electric';
-  cc?: string;
-  capacity?: string;
   tags: string[];
   description: string;
-  specs: {
-    engine: string;
-    horsepower: string;
-    driveType: string;
-    ac: string;
-    infotainment: string;
-    safety: string;
-  };
 }
 
 export const VEHICLES: Vehicle[] = [];

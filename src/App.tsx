@@ -13,8 +13,23 @@ import FAQ from './pages/FAQ';
 import About from './pages/About';
 import MyBookings from './pages/MyBookings';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminLogin from './pages/AdminLogin';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
+import { useAuth } from './lib/AuthContext';
+import { Navigate } from 'react-router-dom';
+
+function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAdmin, loading } = useAuth();
+  const isVerified = sessionStorage.getItem('admin_verified') === 'true';
+
+  if (loading) return null;
+  if (!user || !isAdmin || !isVerified) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -42,7 +57,8 @@ export default function App() {
               <Route path="/faq" element={<FAQ />} />
               <Route path="/about" element={<About />} />
               <Route path="/bookings" element={<MyBookings />} />
-              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
             </Routes>
