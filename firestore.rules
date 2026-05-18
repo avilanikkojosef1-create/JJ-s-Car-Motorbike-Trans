@@ -96,9 +96,10 @@ service cloud.firestore {
       allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
       allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
-      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) 
+      allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId) && isValidUser(incoming()) 
         && incoming().createdAt == existing().createdAt
-        && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp);
+        && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp)
+        && (isAdmin() || (incoming().uid == existing().uid && incoming().email == existing().email));
     }
 
     match /bookings/{bookingId} {
@@ -109,11 +110,15 @@ service cloud.firestore {
         && isValidBooking(incoming())
         && incoming().userId == existing().userId
         && incoming().vehicleId == existing().vehicleId
+        && incoming().totalPrice == existing().totalPrice
+        && incoming().createdAt == existing().createdAt
         && (
-          // Action: Cancel
-          (incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
-          // Action: Meta Update
-          || (incoming().status == existing().status && (incoming().updatedAt == request.time || incoming().updatedAt is timestamp))
+          // Admin Action: Change Status
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt']))
+          // User Action: Cancel
+          || (isOwner(existing().userId) && incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+          // User Action: Update Info (but not sensitive fields)
+          || (isOwner(existing().userId) && incoming().status == existing().status && !incoming().diff(existing()).affectedKeys().hasAny(['totalPrice', 'vehicleId', 'userId', 'status']))
         );
       allow delete: if isAdmin() && isValidId(bookingId);
     }

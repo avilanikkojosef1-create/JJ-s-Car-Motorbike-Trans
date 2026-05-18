@@ -15,6 +15,7 @@ export default function VehicleList() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('recommended');
   const itemsPerPage = 6;
 
   const arrival = searchParams.get('arrival') || '';
@@ -43,8 +44,20 @@ export default function VehicleList() {
     fuelTypes.includes(v.fuel)
   );
 
-  const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
-  const currentVehicles = filteredVehicles.slice(
+  const sortedVehicles = [...filteredVehicles].sort((a, b) => {
+    const priceA = Number(a.price) || 0;
+    const priceB = Number(b.price) || 0;
+    if (sortBy === 'price-low') {
+      return priceA - priceB;
+    }
+    if (sortBy === 'price-high') {
+      return priceB - priceA;
+    }
+    return 0; // 'recommended' or default
+  });
+
+  const totalPages = Math.ceil(sortedVehicles.length / itemsPerPage);
+  const currentVehicles = sortedVehicles.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -218,10 +231,14 @@ export default function VehicleList() {
             </p>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">Sort by:</span>
-              <select className="bg-white border border-slate-200 rounded-2xl py-3 px-8 text-[10px] font-bold uppercase tracking-widest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm appearance-none min-w-[200px]">
-                <option className="bg-white">Recommended</option>
-                <option className="bg-white">Price: Low to High</option>
-                <option className="bg-white">Price: High to Low</option>
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white border border-slate-200 rounded-2xl py-3 px-8 text-[10px] font-bold uppercase tracking-widest text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm appearance-none min-w-[200px]"
+              >
+                <option value="recommended" className="bg-white">Recommended</option>
+                <option value="price-low" className="bg-white">Price: Low to High</option>
+                <option value="price-high" className="bg-white">Price: High to Low</option>
               </select>
             </div>
           </div>
