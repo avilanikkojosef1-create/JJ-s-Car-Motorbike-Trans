@@ -21,7 +21,9 @@ import {
   Settings,
   Upload,
   ShieldCheck,
-  Info
+  Info,
+  User as UserIcon,
+  ExternalLink
 } from 'lucide-react';
 import { 
   collection, 
@@ -45,6 +47,7 @@ import { Link, Navigate } from 'react-router-dom';
 export default function AdminDashboard() {
   const { user, isAdmin, loading: authLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'bookings' | 'vehicles' | 'blog' | 'settings'>('bookings');
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
   
   const handleLogout = async () => {
     sessionStorage.removeItem('admin_verified');
@@ -105,20 +108,168 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto w-full p-8 flex-grow">
         <AnimatePresence mode="wait">
-          {activeTab === 'bookings' && <BookingsManager key="bookings" />}
+          {activeTab === 'bookings' && <BookingsManager key="bookings" onSelectBooking={setSelectedBooking} />}
           {activeTab === 'vehicles' && <VehiclesManager key="vehicles" />}
           {activeTab === 'blog' && <BlogManager key="blog" />}
-          {activeTab === 'settings' && <SettingsManager key="settings" />}
+          {activeTab === 'settings' && <SettingsManager key="settings" userEmail={user?.email || ''} />}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {selectedBooking && (
+          <BookingDetailsModal 
+            booking={selectedBooking} 
+            onClose={() => setSelectedBooking(null)} 
+            onStatusChange={(status) => {
+              // Refreshing list logic is in the parent usually, 
+              // but for simplicity we'll just handle it where needed
+              setSelectedBooking(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
+// --- Booking Details Modal ---
+function BookingDetailsModal({ booking, onClose, onStatusChange }: { booking: any, onClose: () => void, onStatusChange: (s: string) => void }) {
+  const maskDL = (val: string) => {
+    if (!val) return 'N/A';
+    if (val.length <= 4) return '****';
+    return val.substring(0, 2) + '****' + val.substring(val.length - 2);
+  };
+
+  const handleStatusUpdate = async (status: string) => {
+    try {
+      const bookingRef = doc(db, 'bookings', booking.id);
+      await updateDoc(bookingRef, { status, updatedAt: serverTimestamp() });
+      alert(`Booking ${status} successfully.`);
+      onStatusChange(status);
+      window.location.reload(); // Simple refresh for state sync
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `bookings/${booking.id}`);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-on-surface/90 backdrop-blur-sm"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        className="bg-white w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl border border-slate-200"
+      >
+        <div className="bg-primary/5 p-8 border-b border-slate-100 flex justify-between items-start">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2 block">Reservation Dossier</span>
+            <h2 className="text-3xl font-black text-on-surface tracking-tighter">
+              {booking.firstName} <span className="text-primary italic">{booking.lastName}</span>
+            </h2>
+            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mt-1">ID: {booking.id}</p>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-on-surface-variant hover:text-red-500 shadow-sm transition-colors ring-1 ring-slate-100">
+            <XCircle size={24} />
+          </button>
+        </div>
+
+        <div className="p-10 space-y-10">
+          <div className="grid grid-cols-2 gap-10">
+            <div className="space-y-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Customer Contact</span>
+                <p className="font-bold flex items-center gap-2"><Mail size={14} className="text-primary" /> {booking.email}</p>
+                <p className="font-bold flex items-center gap-2"><Settings size={14} className="text-primary" /> {booking.phone}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Driver's Credential</span>
+                <div className="flex items-center gap-3">
+                  <p className="font-mono text-sm tracking-widest bg-slate-100 px-3 py-1 rounded-lg">
+                    {maskDL(booking.driversLicense)}
+                  </p>
+                  <button 
+                    onClick={() => alert(`Unmasked DL for Verification: ${booking.driversLicense}`)}
+                    className="text-[10px] font-black text-primary uppercase hover:underline"
+                  >
+                    View Securely
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="flex flex-col gap-1 text-right">
+                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Vehicle Unit</span>
+                <p className="font-black text-lg text-primary uppercase italic">{booking.vehicleName}</p>
+                <p className="text-[10px] font-bold text-on-surface-variant tracking-widest">PLAN: {booking.protectionPlan || 'STANDARD'}</p>
+              </div>
+              <div className="flex flex-col gap-1 text-right">
+                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Financial Total</span>
+                <p className="text-2xl font-black text-on-surface">₱{booking.totalPrice}.00</p>
+                <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Verified Payment Expected</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 grid grid-cols-2 gap-8 relative overflow-hidden">
+             <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-200 -translate-x-1/2"></div>
+             <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary block mb-2">Pick-up Logistics</span>
+                <p className="text-sm font-bold text-on-surface mb-1">{booking.arrivalDate}</p>
+                <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest">{booking.pickupLocation || 'Main Office'}</p>
+             </div>
+             <div className="text-right">
+                <span className="text-[10px] font-black uppercase tracking-widest text-secondary block mb-2">Return Schedule</span>
+                <p className="text-sm font-bold text-on-surface mb-1">{booking.departureDate}</p>
+                <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest">{booking.returnLocation || 'Main Office'}</p>
+             </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            {booking.status === 'pending' ? (
+              <>
+                <button 
+                  onClick={() => handleStatusUpdate('confirmed')}
+                  className="flex-1 btn-primary py-5 rounded-2xl flex items-center justify-center gap-3 text-xs font-black uppercase tracking-[0.2em]"
+                >
+                  <CheckCircle2 size={20} /> Authorize Booking
+                </button>
+                <button 
+                  onClick={() => handleStatusUpdate('cancelled')}
+                  className="px-8 py-5 rounded-2xl bg-slate-100 text-on-surface-variant hover:bg-red-500 hover:text-white transition-all text-xs font-black uppercase tracking-[0.2em]"
+                >
+                  Reject
+                </button>
+              </>
+            ) : booking.status === 'confirmed' ? (
+              <button 
+                onClick={() => handleStatusUpdate('completed')}
+                className="w-full py-5 rounded-2xl border-2 border-primary text-primary font-black text-xs uppercase tracking-[0.2em] hover:bg-primary hover:text-white transition-all"
+              >
+                Mark Journey Completed
+              </button>
+            ) : (
+              <div className="w-full py-4 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+                Terminated State: {booking.status}
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // --- Settings Manager ---
-function SettingsManager() {
+function SettingsManager({ userEmail }: { userEmail: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
   const [settings, setSettings] = useState({
     logo: '',
     heroContent: '',
@@ -127,7 +278,32 @@ function SettingsManager() {
 
   useEffect(() => {
     fetchSettings();
+    fetchAdmins();
   }, []);
+
+  const fetchAdmins = async () => {
+    try {
+      const q = query(collection(db, 'admins'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      setAdmins(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (e) {
+      console.error('Error fetching admins:', e);
+    }
+  };
+
+  const addAdmin = async () => {
+    if (!newAdminEmail.includes('@')) return;
+    setSaving(true);
+    try {
+      // In a real app we might want to resolve UID first, but for simple lookup
+      // we'll just check it by email or manually add via Console.
+      // Here we assume the user provides a UID or we use Email as ID for lookup
+      // Actually, my rule uses request.auth.uid, so we NEED the UID.
+      alert("Manual Security Note: To add a new admin, you currently need to provide their Firebase UID to the system or add them via the Firebase Console to the 'admins' collection.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -415,12 +591,94 @@ function SettingsManager() {
           </div>
         </div>
       </div>
+
+      {/* Global Access Control (Admins) */}
+      <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-200 mt-12">
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-2 block">Security & Access Control (RBAC)</span>
+            <h3 className="text-2xl font-black text-on-surface tracking-tighter">System <span className="text-primary italic">Administrators</span></h3>
+            <p className="text-xs font-bold text-on-surface-variant mt-1">Personnel authorized for high-level operations.</p>
+          </div>
+          <div className="bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-2">
+            <Users size={14} className="text-on-surface-variant" />
+            <span className="text-[10px] font-black">{admins.length} ACTIVE</span>
+          </div>
+        </div>
+
+        <div className="space-y-4 mb-8">
+          {/* Master Fallback Admins (Logic Level) */}
+          <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-center justify-between border-dashed">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-white border border-primary/10 flex items-center justify-center text-primary shadow-sm">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary italic">jjscarmotorbiketrans@gmail.com</p>
+                <p className="text-[10px] text-primary/60 font-black uppercase tracking-widest">Master Root (System Primary)</p>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 bg-primary text-white text-[8px] font-black uppercase tracking-widest rounded-md">Root</span>
+          </div>
+
+          <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-center justify-between border-dashed opacity-50">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-white border border-primary/10 flex items-center justify-center text-primary shadow-sm">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary italic">avilanikkojosef1@gmail.com</p>
+                <p className="text-[10px] text-primary/60 font-black uppercase tracking-widest">Master Root (Emergency Override)</p>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 bg-primary text-white text-[8px] font-black uppercase tracking-widest rounded-md">Root</span>
+          </div>
+
+          {/* Collection-based Admins */}
+          {admins.map((admin: any) => (
+            <div key={admin.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-on-surface-variant">
+                  <UserIcon size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-on-surface">{admin.email}</p>
+                  <p className="text-[10px] text-on-surface-variant font-medium">UID: {admin.id}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="px-2 py-0.5 bg-green-100 text-green-600 text-[8px] font-black uppercase tracking-widest rounded-md">Verified Personnel</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center">
+          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mx-auto mb-4 border border-slate-100 text-slate-300">
+            <Plus size={24} />
+          </div>
+          <h4 className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">
+            Secure Entry Provisioning
+          </h4>
+          <p className="text-[10px] font-bold text-on-surface-variant mb-6 max-w-xs mx-auto px-4 opacity-70">
+            To grant access, add the personnel's <span className="text-primary italic">Firebase UID</span> to the 'admins' collection in your database.
+          </p>
+          <a 
+            href="https://console.firebase.google.com" 
+            target="_blank" 
+            rel="noreferrer"
+            className="px-6 py-3 rounded-xl bg-white border border-slate-200 shadow-sm text-primary text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all inline-flex items-center gap-2"
+          >
+            Open Admin Registry <ExternalLink size={12} />
+          </a>
+        </div>
+      </div>
     </motion.div>
   );
 }
 
 // --- Bookings Manager ---
-function BookingsManager() {
+function BookingsManager({ onSelectBooking }: { onSelectBooking: (b: any) => void }) {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -437,24 +695,6 @@ function BookingsManager() {
       handleFirestoreError(error, OperationType.LIST, 'bookings');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (id: string, status: string) => {
-    try {
-      const bookingRef = doc(db, 'bookings', id);
-      await updateDoc(bookingRef, { status, updatedAt: serverTimestamp() });
-      setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
-      
-      if (status === 'confirmed') {
-        const booking = bookings.find(b => b.id === id);
-        console.log(`Sending confirmation email to avilanikkojosef1@gmail.com for booking ${id} of ${booking?.vehicleName}`);
-        // In a real app, this would trigger a Cloud Function or call a specialized API
-        const emailMsg = `Booking Confirmed!\n\nA notification email has been triggered for:\nRecipient: avilanikkojosef1@gmail.com\nVehicle: ${booking?.vehicleName}\nTotal: ₱${booking?.totalPrice}\n\n(Simulation phase: Email sent successfully via system relay)`;
-        alert(emailMsg);
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `bookings/${id}`);
     }
   };
 
@@ -487,7 +727,11 @@ function BookingsManager() {
 
       <div className="grid grid-cols-1 gap-4">
         {bookings.map((booking) => (
-          <div key={booking.id} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-8 group hover:border-primary/20 transition-all">
+          <div 
+            key={booking.id} 
+            onClick={() => onSelectBooking(booking)}
+            className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-8 group hover:border-primary/20 transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-6 w-full md:w-auto">
               <div className="w-14 h-14 rounded-xl bg-slate-50 flex items-center justify-center text-primary border border-slate-100">
                 <Calendar size={28} />
@@ -509,31 +753,7 @@ function BookingsManager() {
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-              {booking.status === 'pending' && (
-                <>
-                  <button 
-                    onClick={() => handleStatusChange(booking.id, 'confirmed')}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-600 transition-colors"
-                  >
-                    <CheckCircle2 size={14} /> Confirm
-                  </button>
-                  <button 
-                    onClick={() => handleStatusChange(booking.id, 'cancelled')}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-on-surface-variant rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
-                  >
-                    <XCircle size={14} /> Decline
-                  </button>
-                </>
-              )}
-              {booking.status === 'confirmed' && (
-                <button 
-                  onClick={() => handleStatusChange(booking.id, 'completed')}
-                  className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-on-surface-variant rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors"
-                >
-                  Mark Completed
-                </button>
-              )}
-              <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-primary transition-colors cursor-pointer">
+              <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-primary transition-colors">
                 <ChevronRight size={20} />
               </div>
             </div>

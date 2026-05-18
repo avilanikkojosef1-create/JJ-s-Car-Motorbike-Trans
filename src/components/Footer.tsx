@@ -8,7 +8,7 @@ export default function Footer() {
     { name: 'FAQ', path: '/faq' },
     { name: 'Our Fleet', path: '/vehicles' },
     { name: 'Travel Blog', path: '/blog' },
-    { name: 'Contact Us', path: '/#contact' },
+    { name: 'Contact Us', path: '/contact' },
   ];
 
   return (
@@ -73,25 +73,14 @@ export default function Footer() {
           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface mb-8">Quick Navigation</h4>
           <nav className="grid grid-cols-1 gap-4">
             {sections.map((section) => (
-              section.name === 'Contact Us' ? (
-                <a
-                  key={section.name}
-                  href={section.path}
-                  className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2 group"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-primary transition-colors"></div>
-                  {section.name}
-                </a>
-              ) : (
-                <Link
-                  key={section.name}
-                  to={section.path}
-                  className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2 group"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-primary transition-colors"></div>
-                  {section.name}
-                </Link>
-              )
+              <Link
+                key={section.name}
+                to={section.path}
+                className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2 group"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-primary transition-colors"></div>
+                {section.name}
+              </Link>
             ))}
           </nav>
         </div>

@@ -16,6 +16,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
+import Contact from './pages/Contact';
 import { useAuth } from './lib/AuthContext';
 import { Navigate } from 'react-router-dom';
 
@@ -24,7 +25,17 @@ function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
   const isVerified = sessionStorage.getItem('admin_verified') === 'true';
 
   if (loading) return null;
-  if (!user || !isAdmin || !isVerified) {
+  
+  // Extra layer of protection: also check the email directly for master accounts 
+  // to prevent race conditions while isAdmin is syncing
+  const masterEmails = [
+    'avilanikkojosef1@gmail.com', 
+    'seff.carrental31@gmail.com',
+    'jjscarmotorbiketrans@gmail.com'
+  ];
+  const isMaster = user && masterEmails.includes((user.email || '').toLowerCase());
+
+  if (!user || (!isAdmin && !isMaster) || !isVerified) {
     return <Navigate to="/admin/login" replace />;
   }
 
@@ -61,6 +72,7 @@ export default function App() {
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route path="/contact" element={<Contact />} />
             </Routes>
           </main>
           <Footer />

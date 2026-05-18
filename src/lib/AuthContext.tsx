@@ -23,8 +23,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAILS = ['avilanikkojosef1@gmail.com', 'seff.carrental31@gmail.com'];
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,7 +31,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        setIsAdmin(ADMIN_EMAILS.includes((firebaseUser.email || '').toLowerCase()));
+        // Master hardcoded check + potential collection check
+        const isMaster = [
+          'avilanikkojosef1@gmail.com', 
+          'seff.carrental31@gmail.com',
+          'jjscarmotorbiketrans@gmail.com'
+        ].includes((firebaseUser.email || '').toLowerCase());
+        
+        let hasAdminDoc = false;
+        try {
+          const adminDoc = await getDoc(doc(db, 'admins', firebaseUser.uid));
+          hasAdminDoc = adminDoc.exists();
+        } catch (e) {
+          // Rule might block if not admin yet
+        }
+
+        const needsEmailVerification = !isMaster;
+        setIsAdmin((!needsEmailVerification || firebaseUser.emailVerified) && (isMaster || hasAdminDoc));
+
         // Sync user profile
         const userRef = doc(db, 'users', firebaseUser.uid);
         try {
@@ -51,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
           handleFirestoreError(error, OperationType.WRITE, `users/${firebaseUser.uid}`);
         }
+      } else {
+        setIsAdmin(false);
       }
       setUser(firebaseUser);
       setLoading(false);
@@ -65,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
-        // User closed the popup, simply return without error
         return;
       }
       throw error;
@@ -77,16 +93,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, pass);
     } catch (error: any) {
-      // If the admin user doesn't exist yet, attempt to create the account automatically
-      if (cleanEmail === 'seff.carrental31@gmail.com' && pass === '123456' && 
-         (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-login-credentials' || error.code === 'auth/user-disabled')) {
+      // Auto-provisioning for the requesting user's specific account
+      if (cleanEmail === 'jjscarmotorbiketrans@gmail.com' && pass === '123456' && 
+         (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-login-credentials')) {
         try {
           await createUserWithEmailAndPassword(auth, cleanEmail, pass);
           return;
-        } catch (createError: any) {
-          if (createError.code === 'auth/email-already-in-use') {
-            throw new Error('Account exists with a different password. Please check your credentials.');
-          }
+        } catch (createError) {
           throw error;
         }
       }

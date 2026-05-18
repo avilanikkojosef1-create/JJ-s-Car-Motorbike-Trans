@@ -26,6 +26,7 @@ export default function Navbar() {
     { name: 'Home', path: '/' },
     { name: 'Vehicles', path: '/vehicles' },
     { name: 'Blog', path: '/blog' },
+    { name: 'Contact', path: '/contact' },
     ...(user ? [{ name: 'My Bookings', path: '/bookings' }] : []),
   ];
 

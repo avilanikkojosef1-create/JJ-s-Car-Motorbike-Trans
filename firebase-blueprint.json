@@ -91,6 +91,16 @@
         "heroType": { "type": "string", "enum": ["image", "video"] },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Administrator record for RBAC",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
     }
   },
   "firestore": {
@@ -113,6 +123,10 @@
     "settings/{settingId}": {
       "schema": "Setting",
       "description": "Global settings"
+    },
+    "admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Role-based access control for admins"
     }
   }
 }
