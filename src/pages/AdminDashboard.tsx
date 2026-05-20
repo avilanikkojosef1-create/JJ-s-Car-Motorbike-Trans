@@ -23,7 +23,8 @@ import {
   ShieldCheck,
   Info,
   User as UserIcon,
-  ExternalLink
+  ExternalLink,
+  Zap
 } from 'lucide-react';
 import { 
   collection, 
@@ -273,6 +274,7 @@ function SettingsManager({ userEmail }: { userEmail: string }) {
   const [settings, setSettings] = useState({
     logo: '',
     heroContent: '',
+    heroPoster: '',
     heroType: 'image' as 'image' | 'video' | 'youtube'
   });
 
@@ -444,9 +446,23 @@ function SettingsManager({ userEmail }: { userEmail: string }) {
             <p className="text-[10px] text-on-surface-variant ml-2">Appears in the navigation bar and global UI. Max 1MB for uploads.</p>
           </div>
 
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-start gap-4">
+            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-600 flex-shrink-0">
+              <Zap size={18} />
+            </div>
+            <div>
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Video Performance Tip</h4>
+               <p className="text-[10px] text-green-700 font-medium leading-relaxed">
+                 To make your video play in &lt;1 second (like Thrifty), use a compressed MP4 file under 5MB. 
+                 Direct links (e.g. from Firebase Storage) are much faster than Google Drive links.
+                 <br /><strong>Pro Tip:</strong> Upload a "Hero Poster" (static image) to show it instantly while the video buffers in the background.
+               </p>
+            </div>
+          </div>
+
 
           <div className="flex flex-col gap-4">
-            <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Hero Section Content</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Hero Section Content (Video or Image URL)</label>
             <div className="flex flex-col gap-4">
               <input 
                 required
@@ -471,9 +487,6 @@ function SettingsManager({ userEmail }: { userEmail: string }) {
                 className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
                 placeholder="Paste URL (YouTube/Google Drive/Direct Video) or upload below"
               />
-              <p className="text-[10px] text-slate-400 mt-1 px-2">
-                Supported: Direct video links (.mp4, .mov, .webm), YouTube URLs, Google Drive, and Firebase Storage links.
-              </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="relative">
                   <input 
@@ -509,6 +522,36 @@ function SettingsManager({ userEmail }: { userEmail: string }) {
             </div>
             <p className="text-[10px] text-on-surface-variant ml-2">Max 1MB for direct uploads. Larger files require a URL.</p>
           </div>
+
+          {settings.heroType === 'video' && (
+            <div className="flex flex-col gap-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Video Poster / Static Thumbnail (Optional but Recommended)</label>
+              <div className="flex flex-col gap-4">
+                <input 
+                  value={settings.heroPoster || ''}
+                  onChange={e => setSettings({...settings, heroPoster: e.target.value})}
+                  className="w-full bg-slate-50 border-none rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                  placeholder="URL to a static image to show while video loads"
+                />
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/png, image/jpeg" 
+                    onChange={(e) => handleFileChange(e, 'heroPoster' as any)}
+                    className="hidden" 
+                    id="hero-poster-upload" 
+                  />
+                  <label 
+                    htmlFor="hero-poster-upload" 
+                    className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-slate-100 text-on-surface-variant text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                  >
+                    <ImageIcon size={14} /> Upload Poster Image
+                  </label>
+                </div>
+              </div>
+              <p className="text-[10px] text-on-surface-variant ml-2">This image shows instantly before the video starts. Essential for "fast" perceived load times.</p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Hero Content Type</label>
@@ -573,10 +616,15 @@ function SettingsManager({ userEmail }: { userEmail: string }) {
                         ? `https://drive.google.com/uc?id=${settings.heroContent.match(/\/d\/([^/]+)/)?.[1] || settings.heroContent.match(/[?&]id=([^&]+)/)?.[1] || ''}&export=media`
                         : settings.heroContent
                     }
+                    poster={settings.heroPoster || (settings.heroContent.includes('drive.google.com') 
+                      ? `https://drive.google.com/thumbnail?id=${settings.heroContent.match(/\/d\/([^/]+)/)?.[1] || settings.heroContent.match(/[?&]id=([^&]+)/)?.[1] || ''}&sz=w1920`
+                      : '')
+                    }
                     autoPlay 
                     muted 
                     loop 
                     playsInline 
+                    preload="auto"
                     className="w-full h-full object-cover" 
                   />
                 ) : (

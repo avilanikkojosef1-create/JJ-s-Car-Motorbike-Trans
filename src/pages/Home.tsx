@@ -11,13 +11,12 @@ export default function Home() {
   const [loadingFleets, setLoadingFleets] = useState(true);
   const [settings, setSettings] = useState({
     heroContent: '',
+    heroPoster: '',
     heroType: 'image' as 'image' | 'video' | 'youtube'
   });
   const [arrivalDate, setArrivalDate] = useState('');
   const [departureDate, setDepartureDate] = useState('');
   const [location, setLocation] = useState('');
-  
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   
   const [searchParams] = useSearchParams();
   const [showToast, setShowToast] = useState(searchParams.get('booked') === 'success');
@@ -33,11 +32,10 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Reset video load state when content changes
-    setIsVideoLoaded(false);
     const unsub = onSnapshot(doc(db, 'settings', 'general'), (doc) => {
       if (doc.exists()) {
-        setSettings(doc.data() as any);
+        const data = doc.data() as any;
+        setSettings(data);
       }
     });
     return () => unsub();
@@ -115,41 +113,25 @@ export default function Home() {
                 <div className="absolute inset-0 z-10 bg-transparent" />
               </div>
             ) : isVideo(settings.heroContent) ? (
-              <>
-                {/* Immediate Poster/Thumbnail to avoid black screen */}
-                <div 
-                  className={`absolute inset-0 z-0 transition-opacity duration-1000 ${isVideoLoaded ? 'opacity-0' : 'opacity-100'}`}
-                >
-                  <img 
-                    src={settings.heroContent.includes('drive.google.com') 
-                      ? `https://drive.google.com/thumbnail?id=${getDriveId(settings.heroContent)}&sz=w1920`
-                      : settings.heroContent // Fallback to content URL if it's an image
-                    }
-                    className="w-full h-full object-cover brightness-[0.6] blur-sm scale-105"
-                    alt="Video loading..."
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                  </div>
-                </div>
-                
-                <video 
-                  key={settings.heroContent}
-                  src={
-                    settings.heroContent.includes('drive.google.com')
-                      ? `https://drive.google.com/uc?id=${getDriveId(settings.heroContent)}&export=media`
-                      : settings.heroContent
-                  } 
-                  autoPlay 
-                  muted 
-                  loop 
-                  playsInline
-                  preload="auto"
-                  onLoadedData={() => setIsVideoLoaded(true)}
-                  disablePictureInPicture
-                  className={`w-full h-full object-cover brightness-[0.7] contrast-[1.1] transition-opacity duration-1000 ${isVideoLoaded ? 'opacity-100' : 'opacity-0'}`}
-                />
-              </>
+              <video 
+                key={settings.heroContent}
+                src={
+                  settings.heroContent.includes('drive.google.com')
+                    ? `https://drive.google.com/uc?id=${getDriveId(settings.heroContent)}&export=media`
+                    : settings.heroContent
+                } 
+                poster={settings.heroPoster || (settings.heroContent.includes('drive.google.com') 
+                  ? `https://drive.google.com/thumbnail?id=${getDriveId(settings.heroContent)}&sz=w1920`
+                  : '')
+                }
+                autoPlay 
+                muted 
+                loop 
+                playsInline
+                preload="auto"
+                disablePictureInPicture
+                className="w-full h-full object-cover brightness-[0.7] contrast-[1.1]"
+              />
             ) : (
 
               <img 
