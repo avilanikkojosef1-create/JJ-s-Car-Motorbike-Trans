@@ -25,8 +25,14 @@ async function startServer() {
   // Serve static files from the public directory
   app.use(express.static(path.join(process.cwd(), 'public')));
 
+  // Determine if we should run in production mode:
+  // - If NODE_ENV is explicitly "production"
+  // - OR if we are not in development and not executing starting with "server.ts" (like compiled cjs)
+  const isProduction = process.env.NODE_ENV === "production" || 
+    (process.env.NODE_ENV !== "development" && !process.argv.some(arg => arg.includes("server.ts")));
+
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
