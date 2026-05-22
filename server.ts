@@ -22,8 +22,8 @@ async function startServer() {
     res.sendFile(path.join(process.cwd(), 'public', 'robots.txt'));
   });
 
-  // Determine if we should run in production mode
-  const isProduction = process.env.NODE_ENV === "production";
+  // Determine if we should run in production mode (default to production on Cloud Run/production environments)
+  const isProduction = process.env.NODE_ENV === "production" || process.env.NODE_ENV !== "development";
 
   // Vite middleware for development
   if (!isProduction) {
@@ -34,8 +34,23 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    
+    // Serve static files with cache headers since built Vite assets are content-hashed
+    app.use(express.static(distPath, {
+      maxAge: '1y',
+      immutable: true,
+      index: false
+    }));
+
     app.get('*', (req, res) => {
+      // Prevent returning index.html for static assets that are missing on the server
+      if (req.path.startsWith('/assets/') || req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|eot|ttf|otf)$/i)) {
+        res.status(404).set('Content-Type', 'text/plain').send('Asset Not Found');
+        return;
+      }
+      
+      // Force custom domains, CDNs, and browsers to always load the latest index.html fresh
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
